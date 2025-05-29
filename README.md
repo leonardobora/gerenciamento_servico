@@ -144,7 +144,7 @@ Seu código agora está no GitHub! Você pode compartilhar a URL do repositório
 
 ## Contexto Acadêmico
 
-Este projeto foi desenvolvido para a disciplina de **Estrutura de Dados I** sob orientação do **Professor Fabio Bettio** para o curso de **Análise e Desenvolvimento de Sistemas (ADS2)**.
+Este projeto foi desenvolvido para a disciplina de **Estrutura de Dados I** sob orientação do **Professor Fabio Bettio** para o curso de **Engenharia de Software**.
 
 ## Autores
 
