@@ -498,6 +498,32 @@ void mostrar_info_arquitetura(GtkWidget *widget __attribute__((unused)), gpointe
     gtk_widget_destroy(dialog);
 }
 
+void abrir_url(const char *url) {
+    char comando[256];
+    snprintf(comando, sizeof(comando), "xdg-open %s", url);
+    system(comando);
+}
+
+void on_github_leonardo_clicked(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    abrir_url("https://github.com/leonardobora");
+}
+
+void on_github_luan_clicked(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    abrir_url("https://github.com/luanconstancio");
+}
+
+void on_linkedin_leonardo_clicked(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    abrir_url("https://linkedin.com/in/leonardobora");
+}
+
+void on_linkedin_luan_clicked(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    abrir_url("https://linkedin.com/in/luanconstancio");
+}
+
+void on_github_repo_clicked(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    abrir_url("https://github.com/leonardobora/gerenciamento_servico");
+}
+
 void on_window_destroy(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
     liberaMemoria();
     gtk_main_quit();
@@ -523,6 +549,39 @@ int main(int argc, char *argv[]) {
                         "<span size='large' weight='bold'>Sistema de Gerenciamento de Serviços</span>\n"
                         "<span size='small'>Desenvolvido por: Leonardo Bora e Luan Constancio</span>");
     gtk_box_pack_start(GTK_BOX(vbox), title_label, FALSE, FALSE, 10);
+    
+    // Botões de redes sociais
+    GtkWidget *social_frame = gtk_frame_new("Links dos Desenvolvedores");
+    gtk_box_pack_start(GTK_BOX(vbox), social_frame, FALSE, FALSE, 5);
+    
+    GtkWidget *social_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(social_hbox), 10);
+    gtk_container_add(GTK_CONTAINER(social_frame), social_hbox);
+    
+    // Botão GitHub Leonardo
+    GtkWidget *btn_github_leonardo = gtk_button_new_with_label("🐱 GitHub Leonardo");
+    g_signal_connect(btn_github_leonardo, "clicked", G_CALLBACK(on_github_leonardo_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(social_hbox), btn_github_leonardo, TRUE, TRUE, 0);
+    
+    // Botão GitHub Luan
+    GtkWidget *btn_github_luan = gtk_button_new_with_label("🐱 GitHub Luan");
+    g_signal_connect(btn_github_luan, "clicked", G_CALLBACK(on_github_luan_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(social_hbox), btn_github_luan, TRUE, TRUE, 0);
+    
+    // Botão LinkedIn Leonardo
+    GtkWidget *btn_linkedin_leonardo = gtk_button_new_with_label("💼 LinkedIn Leonardo");
+    g_signal_connect(btn_linkedin_leonardo, "clicked", G_CALLBACK(on_linkedin_leonardo_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(social_hbox), btn_linkedin_leonardo, TRUE, TRUE, 0);
+    
+    // Botão LinkedIn Luan
+    GtkWidget *btn_linkedin_luan = gtk_button_new_with_label("💼 LinkedIn Luan");
+    g_signal_connect(btn_linkedin_luan, "clicked", G_CALLBACK(on_linkedin_luan_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(social_hbox), btn_linkedin_luan, TRUE, TRUE, 0);
+    
+    // Botão Repositório GitHub
+    GtkWidget *btn_github_repo = gtk_button_new_with_label("📁 Repositório");
+    g_signal_connect(btn_github_repo, "clicked", G_CALLBACK(on_github_repo_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(social_hbox), btn_github_repo, TRUE, TRUE, 0);
     
     // Seção para adicionar serviços
     GtkWidget *add_frame = gtk_frame_new("Adicionar Serviço");
