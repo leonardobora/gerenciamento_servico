@@ -34,7 +34,7 @@ jobs:
         file gerenciador_servicos_gtk
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: compiled-binaries
         path: |
