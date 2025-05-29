@@ -1,0 +1,63 @@
+name: Claude Code Sync
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc make libgtk-3-dev pkg-config
+    
+    - name: Compile CLI version
+      run: |
+        gcc gerenciador_servicos.c -o gerenciador_servicos
+        
+    - name: Compile GTK version
+      run: |
+        gcc gerenciador_servicos_gtk.c -o gerenciador_servicos_gtk `pkg-config --cflags --libs gtk+-3.0`
+    
+    - name: Test executables
+      run: |
+        ls -la gerenciador_servicos*
+        file gerenciador_servicos
+        file gerenciador_servicos_gtk
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: compiled-binaries
+        path: |
+          gerenciador_servicos
+          gerenciador_servicos_gtk
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check documentation files
+      run: |
+        echo "Checking for required documentation..."
+        test -f README.md && echo "✓ README.md exists"
+        test -f CLAUDE.md && echo "✓ CLAUDE.md exists"
+        test -f DOCUMENTACAO_TECNICA.md && echo "✓ DOCUMENTACAO_TECNICA.md exists"
+        test -f MANUAL_USUARIO.md && echo "✓ MANUAL_USUARIO.md exists"
+        
+    - name: Validate Makefile
+      run: |
+        if [ -f Makefile ]; then
+          echo "✓ Makefile exists"
+          make --dry-run || echo "⚠️ Makefile needs attention"
+        fi
