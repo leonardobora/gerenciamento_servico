@@ -12,6 +12,11 @@ Sistema de gerenciamento de serviços desenvolvido em C que oferece duas interfa
 - ✅ Ordenação automática baseada em prioridade
 - ✅ Validação de entrada para IDs inexistentes
 - ✅ Gerenciamento adequado de memória
+- ✅ Exclusão de serviços com confirmação
+- ✅ Contadores de serviços por status
+- ✅ Filtros por status e prioridade
+- ✅ Integração contínua com GitHub Actions
+- ✅ Build automático e distribuição de binários
 
 ## Como Começar
 
@@ -62,6 +67,7 @@ Para executar este programa no Windows, você precisa de um compilador C. Aqui e
 
 #### Linux
 
+**Para a versão CLI:**
 1. Abra o Terminal
 2. Navegue até o diretório do projeto
 3. Compile:
@@ -73,60 +79,67 @@ Para executar este programa no Windows, você precisa de um compilador C. Aqui e
    ./gerenciador_servicos
    ```
 
-## Publicando no GitHub
-
-### Configuração Inicial
-
-1. Crie uma conta no GitHub se ainda não tiver uma
-2. Instale o Git:
-   - Windows: Baixe de [git-scm.com](https://git-scm.com/download/win)
-   - Linux: `sudo apt-get install git` (Ubuntu/Debian) ou `sudo yum install git` (RHEL/CentOS)
-
-3. Configure o Git:
+**Para a versão GTK+ (Interface Gráfica):**
+1. Instale as dependências GTK+:
    ```
-   git config --global user.name "Seu Nome"
-   git config --global user.email "seu.email@exemplo.com"
+   # Ubuntu/Debian
+   sudo apt-get install libgtk-3-dev pkg-config
+   
+   # Fedora/RHEL
+   sudo dnf install gtk3-devel pkgconfig
+   
+   # Arch Linux
+   sudo pacman -S gtk3 pkgconfig
    ```
-
-### Criando um Repositório e Enviando Código
-
-1. Vá para [GitHub](https://github.com/) e crie um novo repositório
-   - Clique no "+" no canto superior direito e selecione "New repository"
-   - Nomeie como "gerenciamento_servico" ou seu nome preferido
-   - Escolha visibilidade pública ou privada
-   - Clique em "Create repository"
-
-2. Inicialize o Git na pasta local do projeto (use Git Bash no Windows ou Terminal no Linux):
+2. Compile:
    ```
-   cd /caminho/para/gerenciamento_servico
-   git init
+   gcc gerenciador_servicos_gtk.c -o gerenciador_servicos_gtk `pkg-config --cflags --libs gtk+-3.0`
+   ```
+3. Execute:
+   ```
+   ./gerenciador_servicos_gtk
    ```
 
-3. Adicione seus arquivos ao Git:
-   ```
-   git add .
-   ```
+## Integração Contínua (CI/CD)
 
-4. Faça commit dos seus arquivos:
-   ```
-   git commit -m "Commit inicial: Sistema de Gerenciamento de Serviços"
-   ```
+Este projeto utiliza **GitHub Actions** para automatizar builds e testes:
 
-5. Vincule seu repositório local ao GitHub:
-   ```
-   git remote add origin https://github.com/SEU-USUARIO/gerenciamento_servico.git
-   ```
-   (Substitua SEU-USUARIO pelo seu nome de usuário real do GitHub)
+### 🤖 Build Automático
+- **Compilação automática** nas versões CLI e GTK+ a cada push
+- **Testes de integridade** em ambiente Ubuntu limpo
+- **Artifacts disponíveis** para download após build bem-sucedido
+- **Feedback imediato** sobre problemas de compilação
 
-6. Envie seu código:
-   ```
-   git push -u origin main
-   ```
-   (Se estiver usando uma versão mais antiga do Git, pode precisar usar `master` em vez de `main`)
+### 📋 Workflow Details
+O workflow executa automaticamente:
+1. **Instalação de dependências** (gcc, make, GTK+ dev libraries)
+2. **Compilação das duas versões** do programa
+3. **Validação dos executáveis** gerados
+4. **Upload dos binários** como artifacts
+5. **Verificação da documentação**
 
-7. Digite suas credenciais do GitHub se solicitado
+### 📦 Download de Binários
+Após cada build bem-sucedido:
+- Vá para a aba **Actions** no GitHub
+- Clique no workflow run mais recente
+- Baixe o artifact **"compiled-binaries"**
+- Contém ambas as versões: CLI e GTK+
 
-Seu código agora está no GitHub! Você pode compartilhar a URL do repositório com outros para colaboração.
+## Contribuindo
+
+Contribuições são bem-vindas! Para contribuir:
+
+1. **Fork** o repositório
+2. Crie uma **branch** para sua feature (`git checkout -b feature/nova-funcionalidade`)
+3. **Commit** suas mudanças (`git commit -m 'Adicionar nova funcionalidade'`)
+4. **Push** para a branch (`git push origin feature/nova-funcionalidade`)
+5. Abra um **Pull Request**
+
+### 📋 Checklist antes do PR
+- [ ] Código compila sem warnings
+- [ ] Funcionalidade testada manualmente
+- [ ] Documentação atualizada se necessário
+- [ ] GitHub Actions passando ✅
 
 ## Como Usar
 

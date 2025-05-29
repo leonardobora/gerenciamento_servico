@@ -8,7 +8,12 @@
       "Bash(sudo apt install:*)",
       "Bash(apt list:*)",
       "Bash(make:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(mkdir:*)",
+      "Bash(git commit:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   },
