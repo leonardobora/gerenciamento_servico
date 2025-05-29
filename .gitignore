@@ -1,0 +1,27 @@
+# Executáveis
+gerenciador_servicos
+gerenciador_servicos_gtk
+
+# Arquivos de compilação
+*.o
+*.a
+*.so
+
+# Arquivos temporários
+*~
+*.tmp
+*.swp
+*.swo
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos do Visual Studio Code
+.vscode/
+
+# Arquivos de backup
+*.bak
+
+# Zone Identifier (Windows)
+*.Zone.Identifier

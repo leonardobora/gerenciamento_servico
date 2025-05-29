@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdftotext:*)",
+      "Bash(gcc:*)",
+      "Bash(pkg-config:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(apt list:*)",
+      "Bash(make:*)"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": false
+}
