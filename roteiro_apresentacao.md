@@ -74,7 +74,7 @@ Desenvolver um sistema de gerenciamento de serviços em linguagem C que permite:
 ### Contexto Acadêmico
 - **Disciplina**: Estrutura de Dados I
 - **Professor Orientador**: Fabio Bettio
-- **Curso**: Análise e Desenvolvimento de Sistemas (ADS2)
+- **Curso**: Engenharia de Software
 
 ### Equipe de Desenvolvimento
 - **Leonardo Bora** (Líder)

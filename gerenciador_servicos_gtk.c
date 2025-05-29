@@ -491,7 +491,7 @@ void mostrar_info_arquitetura(GtkWidget *widget __attribute__((unused)), gpointe
     gtk_text_buffer_set_text(buffer, info_text, -1);
     
     gtk_container_add(GTK_CONTAINER(scrolled_window), text_view);
-    gtk_container_add(GTK_CONTAINER(content_area), scrolled_window);
+    gtk_box_pack_start(GTK_BOX(content_area), scrolled_window, TRUE, TRUE, 0);
     
     gtk_widget_show_all(dialog);
     gtk_dialog_run(GTK_DIALOG(dialog));

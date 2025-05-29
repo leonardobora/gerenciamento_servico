@@ -648,7 +648,7 @@ R: Verifique se existem serviços com as características filtradas. Lembre-se q
 ### Contexto Acadêmico
 - **Disciplina**: Estrutura de Dados I
 - **Professor**: Fabio Bettio
-- **Curso**: Análise e Desenvolvimento de Sistemas (ADS)
+- **Curso**: Engenharia de Software
 
 ### Contribuições
 Este é um projeto acadêmico open-source. Sugestões e melhorias são bem-vindas!

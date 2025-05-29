@@ -529,7 +529,7 @@ gcc -DDEBUG -g gerenciador_servicos_gtk.c -o debug_version `pkg-config --cflags 
 
 ### Orientação Acadêmica
 - **Prof. Fabio Bettio** - Disciplina Estrutura de Dados I
-- **Curso ADS** - Análise e Desenvolvimento de Sistemas
+- **Curso** - Engenharia de Software
 
 ---
 
