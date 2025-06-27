@@ -3,6 +3,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#define NOME_ARQUIVO "servicos.csv"
+
 struct Servico {
     int id;
     char descricao[100];
@@ -16,11 +18,56 @@ typedef struct Servico Servico;
 Servico *listaDeServicos = NULL;
 int proximoId = 1;
 
+// Protótipo da função para evitar warnings de declaração implícita
+void insereServicoPrioridade(char descricao[], char prioridadeChar, char status);
+
 void exibirNomesDesenvolvedores() {
     printf("------------------------------------------\n");
     printf("Sistema de Gerenciamento de Servicos\n");
     printf("Desenvolvido por: Leonardo Bora e Luan Constancio\n");
     printf("------------------------------------------\n\n");
+}
+
+void salvarServicosEmArquivo() {
+    FILE *arquivo = fopen(NOME_ARQUIVO, "w");
+    if (arquivo == NULL) {
+        perror("Nao foi possivel abrir o arquivo para escrita");
+        return;
+    }
+
+    Servico *atual = listaDeServicos;
+    while (atual != NULL) {
+        fprintf(arquivo, "%d,%s,%c,%c\n", atual->id, atual->descricao, atual->status, atual->prioridade);
+        atual = atual->prox;
+    }
+
+    fclose(arquivo);
+}
+
+void carregarServicosDoArquivo() {
+    FILE *arquivo = fopen(NOME_ARQUIVO, "r");
+    if (arquivo == NULL) {
+        // Se o arquivo não existe, não há nada a carregar.
+        return;
+    }
+
+    char linha[256];
+    int max_id = 0;
+    while (fgets(linha, sizeof(linha), arquivo)) {
+        int id;
+        char descricao[100];
+        char status, prioridade;
+
+        if (sscanf(linha, "%d,%99[^,],%c,%c", &id, descricao, &status, &prioridade) == 4) {
+            insereServicoPrioridade(descricao, prioridade, status);
+            if (id > max_id) {
+                max_id = id;
+            }
+        }
+    }
+    proximoId = max_id + 1;
+
+    fclose(arquivo);
 }
 
 // Helper to map priority char to a value for comparison
@@ -29,6 +76,30 @@ int getPrioridadeValor(char p) {
     if (p == 'M') return 2; // Média
     if (p == 'B') return 1; // Baixa
     return 0; // Desconhecida/Baixa
+}
+
+// Helper to map status char to a value for comparison
+int getStatusValor(char s) {
+    if (s == 'E') return 3; // Em Execução (mais importante)
+    if (s == 'P') return 2; // Pendente (próximo na fila)
+    if (s == 'C') return 1; // Concluído (menos importante)
+    return 0; // Desconhecido
+}
+
+// Compara dois serviços: primeiro por status, depois por prioridade
+int compareServicos(Servico *a, Servico *b) {
+    int statusA = getStatusValor(a->status);
+    int statusB = getStatusValor(b->status);
+    
+    // Se status diferentes, ordena por status
+    if (statusA != statusB) {
+        return statusA - statusB; // Maior valor = maior prioridade
+    }
+    
+    // Se mesmo status, ordena por prioridade
+    int prioridadeA = getPrioridadeValor(a->prioridade);
+    int prioridadeB = getPrioridadeValor(b->prioridade);
+    return prioridadeA - prioridadeB; // Maior valor = maior prioridade
 }
 
 void insereServicoPrioridade(char descricao[], char prioridadeChar, char status) {
@@ -45,10 +116,9 @@ void insereServicoPrioridade(char descricao[], char prioridadeChar, char status)
     novoServico->ant = NULL;
     novoServico->prox = NULL;
 
-    int novaPrioridadeVal = getPrioridadeValor(prioridadeChar);
-
-    if (listaDeServicos == NULL || novaPrioridadeVal > getPrioridadeValor(listaDeServicos->prioridade)) {
-        // Insere no início se a lista está vazia ou nova prioridade é maior que a da cabeça
+    // Inserção ordenada: primeiro por status, depois por prioridade
+    if (listaDeServicos == NULL || compareServicos(novoServico, listaDeServicos) > 0) {
+        // Insere no início se a lista está vazia ou novo serviço tem prioridade maior
         novoServico->prox = listaDeServicos;
         if (listaDeServicos != NULL) {
             listaDeServicos->ant = novoServico;
@@ -57,7 +127,7 @@ void insereServicoPrioridade(char descricao[], char prioridadeChar, char status)
     } else {
         Servico *atual = listaDeServicos;
         // Procura a posição correta para inserir
-        while (atual->prox != NULL && getPrioridadeValor(atual->prox->prioridade) >= novaPrioridadeVal) {
+        while (atual->prox != NULL && compareServicos(atual->prox, novoServico) >= 0) {
             atual = atual->prox;
         }
         novoServico->prox = atual->prox;
@@ -67,7 +137,51 @@ void insereServicoPrioridade(char descricao[], char prioridadeChar, char status)
         atual->prox = novoServico;
         novoServico->ant = atual;
     }
-    printf("Servico ID %d ('%s') adicionado com prioridade %c.\n", novoServico->id, descricao, prioridadeChar);
+    printf("Servico ID %d ('%s') adicionado com prioridade %c e status %c.\n", 
+           novoServico->id, descricao, prioridadeChar, status);
+}
+
+// Função auxiliar para reordenar a lista
+void reordenaLista() {
+    if (listaDeServicos == NULL || listaDeServicos->prox == NULL) {
+        return; // Lista vazia ou com apenas um elemento
+    }
+    
+    // Implementação simples de bubble sort para reordenação
+    int trocou;
+    do {
+        trocou = 0;
+        Servico *atual = listaDeServicos;
+        
+        while (atual->prox != NULL) {
+            if (compareServicos(atual, atual->prox) < 0) {
+                // Precisa trocar
+                Servico *proximo = atual->prox;
+                
+                // Remove atual da posição
+                if (atual->ant) {
+                    atual->ant->prox = proximo;
+                } else {
+                    listaDeServicos = proximo;
+                }
+                
+                // Remove proximo da posição
+                if (proximo->prox) {
+                    proximo->prox->ant = atual;
+                }
+                
+                // Troca os ponteiros
+                atual->prox = proximo->prox;
+                proximo->ant = atual->ant;
+                atual->ant = proximo;
+                proximo->prox = atual;
+                
+                trocou = 1;
+            } else {
+                atual = atual->prox;
+            }
+        }
+    } while (trocou);
 }
 
 void atualizaStatusServico(int id, char novoStatus) {
@@ -76,6 +190,8 @@ void atualizaStatusServico(int id, char novoStatus) {
         if (atual->id == id) {
             atual->status = novoStatus;
             printf("Status do Servico ID %d atualizado para %c.\n", id, novoStatus);
+            // Reordena a lista após a atualização
+            reordenaLista();
             return;
         }
         atual = atual->prox;
@@ -126,6 +242,7 @@ void liberaMemoria() {
 
 int main() {
     exibirNomesDesenvolvedores();
+    carregarServicosDoArquivo();
     int escolha;
     char descricao[100];
     char prioridade, status;
@@ -163,6 +280,7 @@ int main() {
 
                 // Usando a função de inserção com prioridade
                 insereServicoPrioridade(descricao, prioridade, status);
+                salvarServicosEmArquivo();
                 break;
             case 2:
                 printf("ID do servico para atualizar status: ");
@@ -193,6 +311,7 @@ int main() {
                 getchar(); // Consumir o newline
 
                 atualizaStatusServico(id, status);
+                salvarServicosEmArquivo();
                 break;
             case 3:
                 exibeServicos();
@@ -216,6 +335,7 @@ int main() {
         }
     } while (escolha != 0);
 
+    salvarServicosEmArquivo();
     liberaMemoria();
     return 0;
 }

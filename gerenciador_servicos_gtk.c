@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#define NOME_ARQUIVO "servicos.csv"
+
 // Estrutura do serviço (mesma do original)
 struct Servico {
     int id;
@@ -33,12 +35,108 @@ GtkWidget *label_contador_servicos;
 GtkWidget *combo_filtro_status;
 GtkWidget *combo_filtro_prioridade;
 
-// Funções auxiliares (mesmas do original)
+// Protótipo da função para resolver o warning
+void insereServicoPrioridade(char descricao[], char prioridadeChar, char status);
+
+// Funções auxiliares para a nova lógica de ordenação
 int getPrioridadeValor(char p) {
     if (p == 'A') return 3; // Alta
     if (p == 'M') return 2; // Média
     if (p == 'B') return 1; // Baixa
-    return 0; // Desconhecida/Baixa
+    return 0;
+}
+
+int getStatusValor(char s) {
+    if (s == 'E') return 3; // Em Execução (mais importante)
+    if (s == 'P') return 2; // Pendente (próximo na fila)
+    if (s == 'C') return 1; // Concluído (menos importante)
+    return 0;
+}
+
+// Compara dois serviços: primeiro por status, depois por prioridade
+int compareServicos(Servico *a, Servico *b) {
+    int statusA = getStatusValor(a->status);
+    int statusB = getStatusValor(b->status);
+    
+    // Se status diferentes, ordena por status
+    if (statusA != statusB) {
+        return statusA - statusB; // Maior valor = maior prioridade
+    }
+    
+    // Se mesmo status, ordena por prioridade
+    int prioridadeA = getPrioridadeValor(a->prioridade);
+    int prioridadeB = getPrioridadeValor(b->prioridade);
+    return prioridadeA - prioridadeB; // Maior valor = maior prioridade
+}
+
+int getOrdemValor(Servico *s) {
+    if (s == NULL) return -1;
+    return getStatusValor(s->status) * 10 + getPrioridadeValor(s->prioridade);
+}
+
+void salvarServicosEmArquivo() {
+    FILE *arquivo = fopen(NOME_ARQUIVO, "w");
+    if (arquivo == NULL) {
+        perror("Nao foi possivel abrir o arquivo para escrita");
+        return;
+    }
+
+    Servico *atual = listaDeServicos;
+    while (atual != NULL) {
+        fprintf(arquivo, "%d,%s,%c,%c\n", atual->id, atual->descricao, atual->status, atual->prioridade);
+        atual = atual->prox;
+    }
+
+    fclose(arquivo);
+}
+
+void carregarServicosDoArquivo() {
+    FILE *arquivo = fopen(NOME_ARQUIVO, "r");
+    if (arquivo == NULL) {
+        return; // Arquivo não existe, nada a carregar
+    }
+
+    char linha[256];
+    int max_id = 0;
+    while (fgets(linha, sizeof(linha), arquivo)) {
+        int id;
+        char descricao[100];
+        char status, prioridade;
+
+        if (sscanf(linha, "%d,%99[^,],%c,%c", &id, descricao, &status, &prioridade) == 4) {
+            insereServicoPrioridade(descricao, prioridade, status);
+            if (id > max_id) {
+                max_id = id;
+            }
+        }
+    }
+    proximoId = max_id + 1;
+
+    fclose(arquivo);
+}
+
+void inserirNoOrdenado(Servico *no) {
+    no->ant = no->prox = NULL;
+
+    // Inserção ordenada: primeiro por status, depois por prioridade
+    if (listaDeServicos == NULL || compareServicos(no, listaDeServicos) > 0) {
+        no->prox = listaDeServicos;
+        if (listaDeServicos != NULL) {
+            listaDeServicos->ant = no;
+        }
+        listaDeServicos = no;
+    } else {
+        Servico *atual = listaDeServicos;
+        while (atual->prox != NULL && compareServicos(atual->prox, no) >= 0) {
+            atual = atual->prox;
+        }
+        no->prox = atual->prox;
+        if (atual->prox != NULL) {
+            atual->prox->ant = no;
+        }
+        atual->prox = no;
+        no->ant = atual;
+    }
 }
 
 void insereServicoPrioridade(char descricao[], char prioridadeChar, char status) {
@@ -52,39 +150,34 @@ void insereServicoPrioridade(char descricao[], char prioridadeChar, char status)
     strcpy(novoServico->descricao, descricao);
     novoServico->status = status;
     novoServico->prioridade = prioridadeChar;
-    novoServico->ant = NULL;
-    novoServico->prox = NULL;
-
-    int novaPrioridadeVal = getPrioridadeValor(prioridadeChar);
-
-    if (listaDeServicos == NULL || novaPrioridadeVal > getPrioridadeValor(listaDeServicos->prioridade)) {
-        novoServico->prox = listaDeServicos;
-        if (listaDeServicos != NULL) {
-            listaDeServicos->ant = novoServico;
-        }
-        listaDeServicos = novoServico;
-    } else {
-        Servico *atual = listaDeServicos;
-        while (atual->prox != NULL && getPrioridadeValor(atual->prox->prioridade) >= novaPrioridadeVal) {
-            atual = atual->prox;
-        }
-        novoServico->prox = atual->prox;
-        if (atual->prox != NULL) {
-            atual->prox->ant = novoServico;
-        }
-        atual->prox = novoServico;
-        novoServico->ant = atual;
-    }
+    
+inserirNoOrdenado(novoServico);
 }
 
-void atualizaStatusServico(int id, char novoStatus) {
+Servico* desanexarNo(int id) {
     Servico *atual = listaDeServicos;
     while (atual != NULL) {
         if (atual->id == id) {
-            atual->status = novoStatus;
-            return;
+            if (atual->ant != NULL) {
+                atual->ant->prox = atual->prox;
+            } else {
+                listaDeServicos = atual->prox;
+            }
+            if (atual->prox != NULL) {
+                atual->prox->ant = atual->ant;
+            }
+            return atual;
         }
         atual = atual->prox;
+    }
+    return NULL; // Não encontrado
+}
+
+void atualizaStatusServico(int id, char novoStatus) {
+    Servico *no = desanexarNo(id);
+    if (no != NULL) {
+        no->status = novoStatus;
+        inserirNoOrdenado(no);
     }
 }
 
@@ -211,18 +304,28 @@ void atualizar_lista_servicos() {
             GtkTreeIter iter;
             
             // Converter prioridade para string
-            char prioridadeStr[10];
-            if (atual->prioridade == 'A') strcpy(prioridadeStr, "Alta");
-            else if (atual->prioridade == 'M') strcpy(prioridadeStr, "Média");
-            else if (atual->prioridade == 'B') strcpy(prioridadeStr, "Baixa");
-            else strcpy(prioridadeStr, "N/A");
+            char prioridadeStr[20];
+            char corFundo[20];
+            if (atual->prioridade == 'A') {
+                strcpy(prioridadeStr, "� Alta");
+                strcpy(corFundo, "#ffebee"); // Vermelho claro
+            } else if (atual->prioridade == 'M') {
+                strcpy(prioridadeStr, "⚠️ Média");
+                strcpy(corFundo, "#fffde7"); // Amarelo claro
+            } else if (atual->prioridade == 'B') {
+                strcpy(prioridadeStr, "✅ Baixa");
+                strcpy(corFundo, "#e8f5e8"); // Verde claro
+            } else {
+                strcpy(prioridadeStr, "❓ N/A");
+                strcpy(corFundo, "#ffffff"); // Branco
+            }
 
-            // Converter status para string
-            char statusStr[15];
-            if (atual->status == 'P') strcpy(statusStr, "Pendente");
-            else if (atual->status == 'E') strcpy(statusStr, "Em Execução");
-            else if (atual->status == 'C') strcpy(statusStr, "Concluído");
-            else strcpy(statusStr, "N/A");
+            // Converter status para string com ícones
+            char statusStr[20];
+            if (atual->status == 'P') strcpy(statusStr, "⏰ Pendente");
+            else if (atual->status == 'E') strcpy(statusStr, "🚀 Em Execução");
+            else if (atual->status == 'C') strcpy(statusStr, "✔️ Concluído");
+            else strcpy(statusStr, "❓ N/A");
 
             gtk_list_store_append(list_store, &iter);
             gtk_list_store_set(list_store, &iter,
@@ -230,6 +333,7 @@ void atualizar_lista_servicos() {
                               1, atual->descricao,
                               2, prioridadeStr,
                               3, statusStr,
+                              4, corFundo,
                               -1);
         }
         
@@ -264,14 +368,14 @@ void on_adicionar_clicked(GtkWidget *widget __attribute__((unused)), gpointer da
     
     // Converter strings para caracteres
     char prioridade_char = 'B';
-    if (strcmp(prioridade_str, "Alta") == 0) prioridade_char = 'A';
-    else if (strcmp(prioridade_str, "Média") == 0) prioridade_char = 'M';
-    else if (strcmp(prioridade_str, "Baixa") == 0) prioridade_char = 'B';
+    if (strstr(prioridade_str, "Alta")) prioridade_char = 'A';
+    else if (strstr(prioridade_str, "Média")) prioridade_char = 'M';
+    else if (strstr(prioridade_str, "Baixa")) prioridade_char = 'B';
     
     char status_char = 'P';
-    if (strcmp(status_str, "Pendente") == 0) status_char = 'P';
-    else if (strcmp(status_str, "Em Execução") == 0) status_char = 'E';
-    else if (strcmp(status_str, "Concluído") == 0) status_char = 'C';
+    if (strstr(status_str, "Pendente")) status_char = 'P';
+    else if (strstr(status_str, "Execução")) status_char = 'E';
+    else if (strstr(status_str, "Concluído")) status_char = 'C';
     
     // Adicionar serviço
     char desc_copy[100];
@@ -279,6 +383,7 @@ void on_adicionar_clicked(GtkWidget *widget __attribute__((unused)), gpointer da
     desc_copy[99] = '\0';
     
     insereServicoPrioridade(desc_copy, prioridade_char, status_char);
+    salvarServicosEmArquivo();
     
     // Limpar campos
     gtk_entry_set_text(GTK_ENTRY(entry_descricao), "");
@@ -309,11 +414,12 @@ void on_atualizar_clicked(GtkWidget *widget __attribute__((unused)), gpointer da
     
     int id = atoi(id_str);
     char novo_status_char = 'P';
-    if (strcmp(novo_status_str, "Pendente") == 0) novo_status_char = 'P';
-    else if (strcmp(novo_status_str, "Em Execução") == 0) novo_status_char = 'E';
-    else if (strcmp(novo_status_str, "Concluído") == 0) novo_status_char = 'C';
+    if (strstr(novo_status_str, "Pendente")) novo_status_char = 'P';
+    else if (strstr(novo_status_str, "Execução")) novo_status_char = 'E';
+    else if (strstr(novo_status_str, "Concluído")) novo_status_char = 'C';
     
     atualizaStatusServico(id, novo_status_char);
+    salvarServicosEmArquivo();
     
     // Limpar campos
     gtk_entry_set_text(GTK_ENTRY(entry_id_atualizar), "");
@@ -353,6 +459,7 @@ void on_excluir_clicked(GtkWidget *widget __attribute__((unused)), gpointer data
     
     if (response == GTK_RESPONSE_YES) {
         if (excluirServico(id)) {
+            salvarServicosEmArquivo();
             // Limpar campo
             gtk_entry_set_text(GTK_ENTRY(entry_id_excluir), "");
             
@@ -408,6 +515,7 @@ void limpar_todos_servicos(GtkWidget *widget __attribute__((unused)), gpointer d
     if (response == GTK_RESPONSE_YES) {
         liberaMemoria();
         proximoId = 1;
+        salvarServicosEmArquivo(); // Salva o estado vazio
         
         // Atualizar lista
         atualizar_lista_servicos();
@@ -525,6 +633,7 @@ void on_github_repo_clicked(GtkWidget *widget __attribute__((unused)), gpointer 
 }
 
 void on_window_destroy(GtkWidget *widget __attribute__((unused)), gpointer data __attribute__((unused))) {
+    salvarServicosEmArquivo();
     liberaMemoria();
     gtk_main_quit();
 }
@@ -532,6 +641,8 @@ void on_window_destroy(GtkWidget *widget __attribute__((unused)), gpointer data 
 int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
     
+    carregarServicosDoArquivo();
+
     // Criar janela principal
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "Gerenciador de Serviços");
@@ -584,7 +695,7 @@ int main(int argc, char *argv[]) {
     gtk_box_pack_start(GTK_BOX(social_hbox), btn_github_repo, TRUE, TRUE, 0);
     
     // Seção para adicionar serviços
-    GtkWidget *add_frame = gtk_frame_new("Adicionar Serviço");
+    GtkWidget *add_frame = gtk_frame_new("🆕 Adicionar Novo Serviço");
     gtk_box_pack_start(GTK_BOX(vbox), add_frame, FALSE, FALSE, 5);
     
     GtkWidget *add_grid = gtk_grid_new();
@@ -594,27 +705,31 @@ int main(int argc, char *argv[]) {
     gtk_container_add(GTK_CONTAINER(add_frame), add_grid);
     
     // Campos para adicionar serviço
-    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("Descrição:"), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("📝 Descrição:"), 0, 0, 1, 1);
     entry_descricao = gtk_entry_new();
+    gtk_widget_set_tooltip_text(entry_descricao, "Digite uma descrição clara do serviço");
     gtk_grid_attach(GTK_GRID(add_grid), entry_descricao, 1, 0, 2, 1);
     
-    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("Prioridade:"), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("🔥 Prioridade:"), 0, 1, 1, 1);
     combo_prioridade = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "Alta");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "Média");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "Baixa");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "� Alta");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "⚠️ Média");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_prioridade), "✅ Baixa");
     gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prioridade), 0);
+    gtk_widget_set_tooltip_text(combo_prioridade, "Selecione a prioridade do serviço");
     gtk_grid_attach(GTK_GRID(add_grid), combo_prioridade, 1, 1, 1, 1);
     
-    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("Status:"), 2, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(add_grid), gtk_label_new("📊 Status:"), 2, 1, 1, 1);
     combo_status = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "Pendente");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "Em Execução");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "Concluído");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "⏰ Pendente");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "🚀 Em Execução");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_status), "✔️ Concluído");
     gtk_combo_box_set_active(GTK_COMBO_BOX(combo_status), 0);
+    gtk_widget_set_tooltip_text(combo_status, "Selecione o status atual do serviço");
     gtk_grid_attach(GTK_GRID(add_grid), combo_status, 3, 1, 1, 1);
     
-    GtkWidget *btn_adicionar = gtk_button_new_with_label("Adicionar Serviço");
+    GtkWidget *btn_adicionar = gtk_button_new_with_label("➕ Adicionar Serviço");
+    gtk_widget_set_tooltip_text(btn_adicionar, "Adiciona um novo serviço à lista (Enter)");
     g_signal_connect(btn_adicionar, "clicked", G_CALLBACK(on_adicionar_clicked), NULL);
     gtk_grid_attach(GTK_GRID(add_grid), btn_adicionar, 4, 0, 1, 2);
     
@@ -623,7 +738,7 @@ int main(int argc, char *argv[]) {
     gtk_box_pack_start(GTK_BOX(vbox), operations_hbox, FALSE, FALSE, 5);
     
     // Seção para atualizar status
-    GtkWidget *update_frame = gtk_frame_new("Atualizar Status");
+    GtkWidget *update_frame = gtk_frame_new("📝 Atualizar Status do Serviço");
     gtk_box_pack_start(GTK_BOX(operations_hbox), update_frame, TRUE, TRUE, 0);
     
     GtkWidget *update_grid = gtk_grid_new();
@@ -638,18 +753,20 @@ int main(int argc, char *argv[]) {
     
     gtk_grid_attach(GTK_GRID(update_grid), gtk_label_new("Novo Status:"), 0, 1, 1, 1);
     combo_novo_status = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "Pendente");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "Em Execução");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "Concluído");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "⏰ Pendente");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "🚀 Em Execução");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_novo_status), "✔️ Concluído");
     gtk_combo_box_set_active(GTK_COMBO_BOX(combo_novo_status), 0);
+    gtk_widget_set_tooltip_text(combo_novo_status, "Selecione o novo status para o serviço");
     gtk_grid_attach(GTK_GRID(update_grid), combo_novo_status, 1, 1, 1, 1);
     
-    GtkWidget *btn_atualizar = gtk_button_new_with_label("Atualizar");
+    GtkWidget *btn_atualizar = gtk_button_new_with_label("📝 Atualizar");
+    gtk_widget_set_tooltip_text(btn_atualizar, "Atualiza o status do serviço selecionado");
     g_signal_connect(btn_atualizar, "clicked", G_CALLBACK(on_atualizar_clicked), NULL);
     gtk_grid_attach(GTK_GRID(update_grid), btn_atualizar, 2, 0, 1, 2);
     
     // Seção para excluir serviço
-    GtkWidget *delete_frame = gtk_frame_new("Excluir Serviço");
+    GtkWidget *delete_frame = gtk_frame_new("🗑 Excluir Serviço");
     gtk_box_pack_start(GTK_BOX(operations_hbox), delete_frame, TRUE, TRUE, 0);
     
     GtkWidget *delete_grid = gtk_grid_new();
@@ -662,12 +779,13 @@ int main(int argc, char *argv[]) {
     entry_id_excluir = gtk_entry_new();
     gtk_grid_attach(GTK_GRID(delete_grid), entry_id_excluir, 1, 0, 1, 1);
     
-    GtkWidget *btn_excluir = gtk_button_new_with_label("Excluir");
+    GtkWidget *btn_excluir = gtk_button_new_with_label("🗑 Excluir");
+    gtk_widget_set_tooltip_text(btn_excluir, "Remove o serviço da lista (necessária confirmação)");
     g_signal_connect(btn_excluir, "clicked", G_CALLBACK(on_excluir_clicked), NULL);
     gtk_grid_attach(GTK_GRID(delete_grid), btn_excluir, 2, 0, 1, 1);
     
     // Container para filtros e ações
-    GtkWidget *filter_frame = gtk_frame_new("Filtros e Ações");
+    GtkWidget *filter_frame = gtk_frame_new("🔍 Filtros e Ações Rápidas");
     gtk_box_pack_start(GTK_BOX(vbox), filter_frame, FALSE, FALSE, 5);
     
     GtkWidget *filter_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
@@ -675,28 +793,30 @@ int main(int argc, char *argv[]) {
     gtk_container_add(GTK_CONTAINER(filter_frame), filter_hbox);
     
     // Filtros
-    gtk_box_pack_start(GTK_BOX(filter_hbox), gtk_label_new("Filtrar por Status:"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(filter_hbox), gtk_label_new("📊 Filtrar por Status:"), FALSE, FALSE, 0);
     combo_filtro_status = gtk_combo_box_text_new();
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_status), "Todos");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_status), "Pendente");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_status), "Em Execução");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_status), "Concluído");
     gtk_combo_box_set_active(GTK_COMBO_BOX(combo_filtro_status), 0);
+    gtk_widget_set_tooltip_text(combo_filtro_status, "Filtre a lista por status dos serviços");
     g_signal_connect(combo_filtro_status, "changed", G_CALLBACK(on_filtro_changed), NULL);
     gtk_box_pack_start(GTK_BOX(filter_hbox), combo_filtro_status, FALSE, FALSE, 5);
     
-    gtk_box_pack_start(GTK_BOX(filter_hbox), gtk_label_new("Filtrar por Prioridade:"), FALSE, FALSE, 10);
+    gtk_box_pack_start(GTK_BOX(filter_hbox), gtk_label_new("🔥 Filtrar por Prioridade:"), FALSE, FALSE, 10);
     combo_filtro_prioridade = gtk_combo_box_text_new();
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_prioridade), "Todas");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_prioridade), "Alta");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_prioridade), "Média");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_filtro_prioridade), "Baixa");
     gtk_combo_box_set_active(GTK_COMBO_BOX(combo_filtro_prioridade), 0);
+    gtk_widget_set_tooltip_text(combo_filtro_prioridade, "Filtre a lista por prioridade dos serviços");
     g_signal_connect(combo_filtro_prioridade, "changed", G_CALLBACK(on_filtro_changed), NULL);
     gtk_box_pack_start(GTK_BOX(filter_hbox), combo_filtro_prioridade, FALSE, FALSE, 5);
     
     // Botões de ação
-    GtkWidget *btn_limpar_todos = gtk_button_new_with_label("🗑️ Limpar Todos");
+    GtkWidget *btn_limpar_todos = gtk_button_new_with_label("🗑 Limpar Todos");
     g_signal_connect(btn_limpar_todos, "clicked", G_CALLBACK(limpar_todos_servicos), NULL);
     gtk_box_pack_end(GTK_BOX(filter_hbox), btn_limpar_todos, FALSE, FALSE, 5);
     
@@ -709,29 +829,53 @@ int main(int argc, char *argv[]) {
     gtk_box_pack_start(GTK_BOX(vbox), label_contador_servicos, FALSE, FALSE, 5);
     
     // Lista de serviços
-    GtkWidget *list_frame = gtk_frame_new("Lista de Serviços");
+    GtkWidget *list_frame = gtk_frame_new("📋 Lista de Serviços Cadastrados");
     gtk_box_pack_start(GTK_BOX(vbox), list_frame, TRUE, TRUE, 5);
     
-    // Criar modelo para a lista
-    list_store = gtk_list_store_new(4, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    // Criar modelo para a lista (adicionando coluna para cor de fundo)
+    list_store = gtk_list_store_new(5, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
     
     // Criar tree view
     tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(list_store));
     
-    // Criar colunas
+    // Criar colunas com cores de fundo
     GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
     GtkTreeViewColumn *column;
     
-    column = gtk_tree_view_column_new_with_attributes("ID", renderer, "text", 0, NULL);
+    // Coluna ID
+    column = gtk_tree_view_column_new_with_attributes("ID", renderer, 
+                                                     "text", 0, 
+                                                     "background", 4, 
+                                                     NULL);
+    gtk_tree_view_column_set_min_width(column, 50);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
     
-    column = gtk_tree_view_column_new_with_attributes("Descrição", renderer, "text", 1, NULL);
+    // Coluna Descrição
+    renderer = gtk_cell_renderer_text_new();
+    column = gtk_tree_view_column_new_with_attributes("📝 Descrição", renderer, 
+                                                     "text", 1, 
+                                                     "background", 4, 
+                                                     NULL);
+    gtk_tree_view_column_set_min_width(column, 200);
+    gtk_tree_view_column_set_expand(column, TRUE);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
     
-    column = gtk_tree_view_column_new_with_attributes("Prioridade", renderer, "text", 2, NULL);
+    // Coluna Prioridade
+    renderer = gtk_cell_renderer_text_new();
+    column = gtk_tree_view_column_new_with_attributes("🔥 Prioridade", renderer, 
+                                                     "text", 2, 
+                                                     "background", 4, 
+                                                     NULL);
+    gtk_tree_view_column_set_min_width(column, 120);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
     
-    column = gtk_tree_view_column_new_with_attributes("Status", renderer, "text", 3, NULL);
+    // Coluna Status
+    renderer = gtk_cell_renderer_text_new();
+    column = gtk_tree_view_column_new_with_attributes("📊 Status", renderer, 
+                                                     "text", 3, 
+                                                     "background", 4, 
+                                                     NULL);
+    gtk_tree_view_column_set_min_width(column, 140);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree_view), column);
     
     // Adicionar scrolled window
@@ -744,8 +888,8 @@ int main(int argc, char *argv[]) {
     // Mostrar todos os widgets
     gtk_widget_show_all(window);
     
-    // Atualizar contadores iniciais
-    atualizarContadores();
+    // Atualizar a lista e os contadores iniciais
+    atualizar_lista_servicos();
     
     // Iniciar loop principal
     gtk_main();
